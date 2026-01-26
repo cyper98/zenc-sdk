@@ -137,8 +137,8 @@ export class ZencClient extends EventEmitter {
     return createAudioTrack(options);
   }
 
-  async createScreenShareTrack(): Promise<LocalVideoTrack> {
-    return createScreenShareTrack();
+  async createScreenShareTrack(options?: import('../types').ScreenShareOptions): Promise<LocalVideoTrack> {
+    return createScreenShareTrack(options);
   }
 
   getCurrentRoom(): Room | undefined {

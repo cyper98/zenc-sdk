@@ -3,6 +3,11 @@ import { SignalingClient } from '../connection/SignalingClient';
 import { PeerConnection } from '../connection/PeerConnection';
 import { Participant, LocalParticipant } from '../participant/Participant';
 import { LocalTrack, RemoteTrack, RemoteVideoTrack, RemoteAudioTrack } from '../track/Track';
+import {
+  ParticipantState,
+  TrackLimitError,
+  ParticipantOnHoldError
+} from '../types';
 import type {
   RoomInfo,
   ParticipantInfo,
@@ -19,6 +24,7 @@ export class Room extends EventEmitter {
   public name: string;
   public participants: Map<string, Participant>;
   public localParticipant?: LocalParticipant;
+  public state: ParticipantState;
   
   private signalingClient: SignalingClient;
   private publisherPC?: PeerConnection;
@@ -35,6 +41,7 @@ export class Room extends EventEmitter {
     this.name = roomInfo.name;
     this.participants = new Map();
     this.signalingClient = signalingClient;
+    this.state = ParticipantState.ACTIVE;
 
     // Create local participant
     this.localParticipant = new LocalParticipant(participantInfo);
@@ -111,6 +118,11 @@ export class Room extends EventEmitter {
       throw new Error('Not joined to room');
     }
 
+    // Check if participant is on hold
+    if (this.isOnHold) {
+      throw new ParticipantOnHoldError();
+    }
+
     // Create publisher peer connection if needed
     if (!this.publisherPC) {
       this.publisherPC = new PeerConnection({
@@ -144,8 +156,16 @@ export class Room extends EventEmitter {
     };
 
     return new Promise((resolve, reject) => {
-      this.signalingClient.once('track.published.response', async (response: PublishTrackResponse) => {
+      this.signalingClient.once('track.published.response', async (response: PublishTrackResponse | any) => {
         try {
+          // Check for error responses
+          if (response.error) {
+            if (response.error === 'participant_on_hold' || response.code === 'MAX_TRACKS_REACHED') {
+              throw new TrackLimitError(response.message || 'Track limit exceeded');
+            }
+            throw new Error(response.message || response.error);
+          }
+
           await this.publisherPC!.setRemoteDescription({ type: 'answer', sdp: response.sdpAnswer });
           this.localParticipant!.addPublishedTrack(track);
           this.emit('trackPublished', track);
@@ -270,5 +290,55 @@ export class Room extends EventEmitter {
     });
 
     this.emit('left');
+  }
+
+  async hold(): Promise<void> {
+    if (!this.localParticipant) {
+      throw new Error('Not connected to room');
+    }
+
+    // Pause all local tracks
+    for (const track of this.localParticipant.publishedTracks.values()) {
+      await track.hold();
+    }
+
+    // Send hold message to server
+    this.signalingClient.send({
+      type: 'room.hold',
+      data: {
+        roomId: this.id,
+        participantId: this.localParticipant.id
+      }
+    });
+
+    this.state = ParticipantState.ON_HOLD;
+    this.emit('roomHeld');
+  }
+
+  async resume(): Promise<void> {
+    if (!this.localParticipant) {
+      throw new Error('Not connected to room');
+    }
+
+    // Send resume message to server
+    this.signalingClient.send({
+      type: 'room.resume',
+      data: {
+        roomId: this.id,
+        participantId: this.localParticipant.id
+      }
+    });
+
+    // Resume all tracks
+    for (const track of this.localParticipant.publishedTracks.values()) {
+      await track.resume();
+    }
+
+    this.state = ParticipantState.ACTIVE;
+    this.emit('roomResumed');
+  }
+
+  get isOnHold(): boolean {
+    return this.state === ParticipantState.ON_HOLD;
   }
 }

@@ -231,13 +231,39 @@ export async function createAudioTrack(
   return new LocalAudioTrack(id, options.source || TrackSource.MICROPHONE, audioTrack);
 }
 
-export async function createScreenShareTrack(): Promise<LocalVideoTrack> {
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: { width: { ideal: 1920 }, height: { ideal: 1080 } }
-  });
-  
-  const videoTrack = stream.getVideoTracks()[0];
-  const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
-  return new LocalVideoTrack(id, TrackSource.SCREEN, videoTrack);
+export async function createScreenShareTrack(
+  options: import('../types').ScreenShareOptions = {}
+): Promise<LocalVideoTrack> {
+  try {
+    const constraints: DisplayMediaStreamOptions = {
+      video: {
+        cursor: options.cursor || 'always',
+        displaySurface: options.surface || 'monitor',
+      } as any,
+      audio: options.captureSystemAudio || false,
+    } as any;
+
+    // Add optional properties if supported
+    if (options.selfBrowserSurface) {
+      (constraints as any).selfBrowserSurface = options.selfBrowserSurface;
+    }
+    if (options.surfaceSwitching) {
+      (constraints as any).surfaceSwitching = options.surfaceSwitching;
+    }
+
+    const stream = await navigator.mediaDevices.getDisplayMedia(constraints);
+    const videoTrack = stream.getVideoTracks()[0];
+    const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const track = new LocalVideoTrack(id, TrackSource.SCREEN, videoTrack);
+    
+    // Listen for screen share ended event
+    videoTrack.addEventListener('ended', () => {
+      track.emit('screenShareEnded');
+    });
+    
+    return track;
+  } catch (error: any) {
+    throw new Error(`Failed to create screen share: ${error.message}`);
+  }
 }

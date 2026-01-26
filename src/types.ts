@@ -57,6 +57,20 @@ export interface AudioTrackOptions {
   autoGainControl?: boolean;
 }
 
+export interface ScreenShareOptions {
+  cursor?: 'always' | 'motion' | 'never';
+  surface?: 'monitor' | 'window' | 'application' | 'browser';
+  captureSystemAudio?: boolean;
+  selfBrowserSurface?: 'include' | 'exclude';
+  surfaceSwitching?: 'include' | 'exclude';
+}
+
+export enum ParticipantState {
+  ACTIVE = 'active',
+  ON_HOLD = 'on_hold',
+  IN_TRANSIT = 'in_transit'
+}
+
 export interface ZencClientOptions {
   url: string;
   token?: string;
@@ -131,4 +145,28 @@ export interface SubscribeTrackResponse {
 export interface ICECandidateMessage {
   candidate: RTCIceCandidateInit;
   trackId?: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+  message: string;
+  code: number;
+}
+
+export class TrackLimitError extends Error {
+  public code = 'TRACK_LIMIT_EXCEEDED';
+  
+  constructor(message: string) {
+    super(message);
+    this.name = 'TrackLimitError';
+  }
+}
+
+export class ParticipantOnHoldError extends Error {
+  public code = 'PARTICIPANT_ON_HOLD';
+  
+  constructor(message: string = 'Cannot publish tracks while participant is on hold') {
+    super(message);
+    this.name = 'ParticipantOnHoldError';
+  }
 }
