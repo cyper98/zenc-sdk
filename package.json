@@ -1,0 +1,55 @@
+{
+  "name": "@aminofox/zenc-sdk",
+  "version": "0.1.0",
+  "description": "Client SDK for Zenc livestreaming platform",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "webrtc",
+    "livestreaming",
+    "video",
+    "audio",
+    "conferencing",
+    "zenc"
+  ],
+  "author": "aminofox",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aminofox/zenc-sdk.git"
+  },
+  "dependencies": {
+    "eventemitter3": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.56.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "peerDependencies": {
+    "@types/dom-webcodecs": "*"
+  },
+  "peerDependenciesMeta": {
+    "@types/dom-webcodecs": {
+      "optional": true
+    }
+  }
+}

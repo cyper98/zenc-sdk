@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zenc SDK - Basic Video Call</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    
+    .controls {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #aaa;
+    }
+    
+    input {
+      width: 100%;
+      max-width: 400px;
+      padding: 10px;
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 14px;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    button {
+      padding: 10px 20px;
+      background: #0066ff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.2s;
+    }
+    
+    button:hover {
+      background: #0052cc;
+    }
+    
+    button:disabled {
+      background: #444;
+      cursor: not-allowed;
+    }
+    
+    button.danger {
+      background: #d32f2f;
+    }
+    
+    button.danger:hover {
+      background: #b71c1c;
+    }
+    
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+    }
+    
+    .video-container {
+      background: #2a2a2a;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    video {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #000;
+    }
+    
+    .video-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    
+    .status {
+      background: #2a2a2a;
+      padding: 10px 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    
+    .status.connected {
+      background: #1b5e20;
+    }
+    
+    .status.connecting {
+      background: #ff6f00;
+    }
+    
+    .participants {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .participants h3 {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    
+    .participant-list {
+      list-style: none;
+      font-size: 14px;
+    }
+    
+    .participant-list li {
+      padding: 5px 0;
+      border-bottom: 1px solid #444;
+    }
+    
+    .participant-list li:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Zenc SDK - Basic Video Call</h1>
+    
+    <div class="status" id="status">Disconnected</div>
+    
+    <div class="controls">
+      <div class="form-group">
+        <label for="serverUrl">Server URL</label>
+        <input type="text" id="serverUrl" value="ws://localhost:8080/ws" placeholder="ws://localhost:8080/ws">
+      </div>
+      
+      <div class="form-group">
+        <label for="roomId">Room ID</label>
+        <input type="text" id="roomId" value="test-room" placeholder="test-room">
+      </div>
+      
+      <div class="button-group">
+        <button id="joinBtn">Join Room</button>
+        <button id="leaveBtn" disabled class="danger">Leave Room</button>
+        <button id="toggleVideoBtn" disabled>Stop Video</button>
+        <button id="toggleAudioBtn" disabled>Mute Audio</button>
+      </div>
+    </div>
+    
+    <div class="participants">
+      <h3>Participants (<span id="participantCount">0</span>)</h3>
+      <ul class="participant-list" id="participantList"></ul>
+    </div>
+    
+    <div class="video-grid">
+      <div class="video-container">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <div class="video-label">You (Local)</div>
+      </div>
+      <div id="remoteVideos"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ZencClient } from '../dist/index.mjs';
+    
+    let zenc;
+    let room;
+    let localVideoTrack;
+    let localAudioTrack;
+    
+    const statusEl = document.getElementById('status');
+    const joinBtn = document.getElementById('joinBtn');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+    const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+    const serverUrlInput = document.getElementById('serverUrl');
+    const roomIdInput = document.getElementById('roomId');
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideos = document.getElementById('remoteVideos');
+    const participantList = document.getElementById('participantList');
+    const participantCount = document.getElementById('participantCount');
+    
+    function updateStatus(message, className = '') {
+      statusEl.textContent = message;
+      statusEl.className = `status ${className}`;
+    }
+    
+    function updateParticipants() {
+      if (!room) return;
+      
+      participantList.innerHTML = '';
+      participantCount.textContent = room.participants.size + 1; // +1 for local
+      
+      const localLi = document.createElement('li');
+      localLi.textContent = `${room.localParticipant.userId} (You)`;
+      participantList.appendChild(localLi);
+      
+      room.participants.forEach((participant) => {
+        const li = document.createElement('li');
+        li.textContent = participant.userId;
+        participantList.appendChild(li);
+      });
+    }
+    
+    joinBtn.addEventListener('click', async () => {
+      try {
+        joinBtn.disabled = true;
+        updateStatus('Connecting...', 'connecting');
+        
+        // Initialize client
+        zenc = new ZencClient({
+          url: serverUrlInput.value,
+          autoConnect: true
+        });
+        
+        zenc.on('connected', () => {
+          updateStatus('Connected', 'connected');
+        });
+        
+        zenc.on('disconnected', () => {
+          updateStatus('Disconnected');
+        });
+        
+        // Create local tracks
+        localVideoTrack = await zenc.createVideoTrack({
+          resolution: '720p',
+          frameRate: 30
+        });
+        
+        localAudioTrack = await zenc.createAudioTrack({
+          echoCancellation: true,
+          noiseSuppression: true
+        });
+        
+        // Attach local video
+        localVideoTrack.attach(localVideo);
+        
+        // Join room
+        room = await zenc.joinRoom(roomIdInput.value, {
+          role: 'publisher'
+        });
+        
+        updateStatus(`Joined room: ${room.name}`, 'connected');
+        
+        // Publish tracks
+        await room.publishTrack(localVideoTrack);
+        await room.publishTrack(localAudioTrack);
+        
+        // Handle participants
+        room.on('participantJoined', async (participant) => {
+          console.log('Participant joined:', participant.id);
+          updateParticipants();
+          
+          participant.on('trackPublished', async (track) => {
+            console.log('Track published:', track.id);
+            const remoteTrack = await room.subscribe(track.id);
+            
+            if (remoteTrack.kind === 'video') {
+              const container = document.createElement('div');
+              container.className = 'video-container';
+              container.id = `video-${participant.id}`;
+              
+              const video = document.createElement('video');
+              video.autoplay = true;
+              video.playsinline = true;
+              
+              const label = document.createElement('div');
+              label.className = 'video-label';
+              label.textContent = participant.userId;
+              
+              container.appendChild(video);
+              container.appendChild(label);
+              remoteVideos.appendChild(container);
+              
+              remoteTrack.attach(video);
+            }
+          });
+        });
+        
+        room.on('participantLeft', (participant) => {
+          console.log('Participant left:', participant.id);
+          const videoContainer = document.getElementById(`video-${participant.id}`);
+          if (videoContainer) {
+            videoContainer.remove();
+          }
+          updateParticipants();
+        });
+        
+        updateParticipants();
+        
+        // Enable controls
+        leaveBtn.disabled = false;
+        toggleVideoBtn.disabled = false;
+        toggleAudioBtn.disabled = false;
+        
+      } catch (error) {
+        console.error('Failed to join:', error);
+        updateStatus(`Error: ${error.message}`);
+        joinBtn.disabled = false;
+      }
+    });
+    
+    leaveBtn.addEventListener('click', async () => {
+      try {
+        if (room) {
+          await room.leave();
+        }
+        if (zenc) {
+          await zenc.disconnect();
+        }
+        
+        localVideoTrack?.stop();
+        localAudioTrack?.stop();
+        
+        remoteVideos.innerHTML = '';
+        participantList.innerHTML = '';
+        participantCount.textContent = '0';
+        
+        updateStatus('Disconnected');
+        joinBtn.disabled = false;
+        leaveBtn.disabled = true;
+        toggleVideoBtn.disabled = true;
+        toggleAudioBtn.disabled = true;
+        
+      } catch (error) {
+        console.error('Failed to leave:', error);
+      }
+    });
+    
+    toggleVideoBtn.addEventListener('click', async () => {
+      if (localVideoTrack.status === 'active') {
+        await localVideoTrack.hold();
+        toggleVideoBtn.textContent = 'Start Video';
+      } else {
+        await localVideoTrack.resume();
+        toggleVideoBtn.textContent = 'Stop Video';
+      }
+    });
+    
+    toggleAudioBtn.addEventListener('click', async () => {
+      if (localAudioTrack.status === 'active') {
+        await localAudioTrack.hold();
+        toggleAudioBtn.textContent = 'Unmute Audio';
+      } else {
+        await localAudioTrack.resume();
+        toggleAudioBtn.textContent = 'Mute Audio';
+      }
+    });
+  </script>
+</body>
+</html>
