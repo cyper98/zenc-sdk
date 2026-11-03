@@ -1,5 +1,5 @@
 {
-  "name": "@aminofox/zenc-sdk",
+  "name": "@cyper98/zenc-sdk",
   "version": "0.1.0",
   "description": "Client SDK for Zenc livestreaming platform",
   "main": "dist/index.js",
@@ -25,11 +25,11 @@
     "conferencing",
     "zenc"
   ],
-  "author": "aminofox",
-  "license": "MIT",
+  "author": "cyper98",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aminofox/zenc-sdk.git"
+    "url": "https://github.com/cyper98/zenc-sdk.git"
   },
   "dependencies": {
     "eventemitter3": "^5.0.1"

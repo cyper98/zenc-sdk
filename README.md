@@ -5,13 +5,13 @@ TypeScript/JavaScript SDK for the Zenc livestreaming platform.
 ## Installation
 
 ```bash
-npm install @aminofox/zenc-sdk
+npm install @cyper98/zenc-sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import { ZencClient } from '@aminofox/zenc-sdk';
+import { ZencClient } from '@cyper98/zenc-sdk';
 
 // Initialize client
 const zenc = new ZencClient({
@@ -193,10 +193,10 @@ npm run lint
 
 ## License
 
-MIT
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ## Links
 
 - [Documentation](https://zenc.example.com/docs)
-- [GitHub](https://github.com/aminofox/zenc-sdk)
-- [Issues](https://github.com/aminofox/zenc-sdk/issues)
+- [GitHub](https://github.com/cyper98/zenc-sdk)
+- [Issues](https://github.com/cyper98/zenc-sdk/issues)
